@@ -1,5 +1,5 @@
 [package]
-name = "your-package-name-here"
+name = "torrust"
 version = "0.1.0"
 edition = "2021"
 
