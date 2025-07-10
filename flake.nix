@@ -43,6 +43,7 @@
             rustToolchain
             rust-analyzer
             sccache
+            pnpm
           ];
 
           # Environment variables

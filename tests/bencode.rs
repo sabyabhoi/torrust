@@ -69,3 +69,51 @@ fn test_decode_dictionary() {
         _ => panic!("Decoded value is not a dictionary"),
     }
 }
+
+#[test]
+fn test_encode_positive_integer() {
+    let bencode = bencode::Bencode::Integer(42);
+    let encoded = bencode::encode(&bencode);
+    assert_eq!(encoded, "i42e");
+}
+
+#[test]
+fn test_encode_negative_integer() {
+    let bencode = bencode::Bencode::Integer(-42);
+    let encoded = bencode::encode(&bencode);
+    assert_eq!(encoded, "i-42e");
+}
+
+#[test]
+fn test_encode_string() {
+    let bencode = bencode::Bencode::String("spam".to_string());
+    let encoded = bencode::encode(&bencode);
+    assert_eq!(encoded, "4:spam");
+}
+
+#[test]
+fn test_encode_list() {
+    let bencode = bencode::Bencode::List(vec![
+        bencode::Bencode::String("spam".to_string()),
+        bencode::Bencode::Integer(42),
+    ]);
+    let encoded = bencode::encode(&bencode);
+    assert_eq!(encoded, "l4:spami42ee");
+}
+
+#[test]
+fn test_encode_dictionary() {
+    use std::collections::HashMap;
+    let mut d = HashMap::new();
+    d.insert(
+        "spam".to_string(),
+        bencode::Bencode::String("eggs".to_string()),
+    );
+    d.insert(
+        "cow".to_string(),
+        bencode::Bencode::String("moo".to_string()),
+    );
+    let bencode = bencode::Bencode::Dictionary(d);
+    let encoded = bencode::encode(&bencode);
+    assert_eq!(encoded, "d3:cow3:moo4:spam4:eggse");
+}

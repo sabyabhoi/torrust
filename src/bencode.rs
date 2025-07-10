@@ -21,6 +21,35 @@ pub fn decode(s: String) -> Result<Bencode> {
     Ok(bencode)
 }
 
+pub fn encode(b: &Bencode) -> String {
+    match b {
+        Bencode::Integer(number) => format!("i{}e", number),
+        Bencode::String(string) => format!("{}:{}", string.len(), string),
+        Bencode::List(list) => {
+            let items: Vec<String> = list.iter().map(encode).collect();
+            format!("l{}e", items.join(""))
+        }
+        Bencode::Dictionary(dict) => {
+            let mut items: Vec<(String, Bencode)> =
+                dict.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+
+            items.sort_by_key(|(k, _)| k.clone());
+
+            let result = items
+                .iter()
+                .map(|(k, v)| {
+                    let encoded_key = encode(&Bencode::String(k.clone()));
+                    let encoded_value = encode(&v);
+                    format!("{}{}", encoded_key, encoded_value)
+                })
+                .collect::<Vec<String>>()
+                .join("");
+
+            format!("d{}e", result)
+        }
+    }
+}
+
 fn decode_bencoded_string(s: String) -> Result<(Bencode, String)> {
     let first_char = s
         .chars()
