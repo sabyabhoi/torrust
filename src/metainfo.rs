@@ -27,8 +27,8 @@ pub struct FileEntry {
     path: Vec<String>,
 }
 
-pub fn decode_metainfo(metainfo: &str) -> Result<MetaInfo> {
-    let bencode = bencode::decode(metainfo.as_bytes().to_vec())?;
+pub fn decode_metainfo(metainfo: &[u8]) -> Result<MetaInfo> {
+    let bencode = bencode::decode(metainfo.to_vec())?;
     match bencode {
         Bencode::Dictionary(dict) => {
             let announce = match dict.get("announce") {

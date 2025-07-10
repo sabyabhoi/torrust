@@ -7,12 +7,7 @@ fn test_decode_metainfo_sample_torrent() {
     let file_path = "tests/test_data/sample.torrent";
     let file_bytes = fs::read(file_path).expect("Failed to read sample.torrent file");
 
-    // Convert bytes to string for processing
-    // Torrent files contain binary data, so we need to handle it as raw bytes
-    let torrent_data = String::from_utf8_lossy(&file_bytes);
-
-    // Attempt to decode the metainfo
-    let result = metainfo::decode_metainfo(&torrent_data);
+    let result = metainfo::decode_metainfo(&file_bytes);
 
     // Ensure the function doesn't throw any errors
     assert!(
@@ -46,7 +41,7 @@ fn test_decode_metainfo_sample_torrent() {
 fn test_decode_metainfo_with_invalid_data() {
     // Test with obviously invalid data to ensure proper error handling
     let invalid_data = "this is not a valid torrent file";
-    let result = metainfo::decode_metainfo(invalid_data);
+    let result = metainfo::decode_metainfo(invalid_data.as_bytes());
 
     // Should return an error for invalid data
     assert!(
@@ -59,7 +54,7 @@ fn test_decode_metainfo_with_invalid_data() {
 fn test_decode_metainfo_with_empty_data() {
     // Test with empty data
     let empty_data = "";
-    let result = metainfo::decode_metainfo(empty_data);
+    let result = metainfo::decode_metainfo(empty_data.as_bytes());
 
     // Should return an error for empty data
     assert!(result.is_err(), "decode_metainfo should fail on empty data");
