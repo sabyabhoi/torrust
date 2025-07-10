@@ -31,7 +31,6 @@ fn test_decode_string() {
 }
 
 #[test]
-#[ignore]
 fn test_decode_list() {
     let encoded = "l4:spami42ee".to_string();
     let decoded = bencode::decode(encoded).unwrap();
@@ -51,23 +50,22 @@ fn test_decode_list() {
     }
 }
 
-// #[test]
-// #[ignore]
-// fn test_decode_dictionary() {
-//     let encoded = "d3:cow3:moo4:spam4:eggse".to_string();
-//     let decoded = bencode::decode(encoded).unwrap();
-//     match decoded {
-//         bencode::Bencode::Dictionary(d) => {
-//             assert_eq!(d.len(), 2);
-//             assert_eq!(
-//                 d.get("cow").unwrap(),
-//                 &bencode::Bencode::String("moo".to_string())
-//             );
-//             assert_eq!(
-//                 d.get("spam").unwrap(),
-//                 &bencode::Bencode::String("eggs".to_string())
-//             );
-//         }
-//         _ => panic!("Decoded value is not a dictionary"),
-//     }
-// }
+#[test]
+fn test_decode_dictionary() {
+    let encoded = "d3:cow3:moo4:spam4:eggse".to_string();
+    let decoded = bencode::decode(encoded).unwrap();
+    match decoded {
+        bencode::Bencode::Dictionary(d) => {
+            assert_eq!(d.len(), 2);
+            assert_eq!(
+                d.get("cow").unwrap(),
+                &bencode::Bencode::String("moo".to_string())
+            );
+            assert_eq!(
+                d.get("spam").unwrap(),
+                &bencode::Bencode::String("eggs".to_string())
+            );
+        }
+        _ => panic!("Decoded value is not a dictionary"),
+    }
+}
