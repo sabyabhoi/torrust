@@ -1,0 +1,102 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'torrust'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=torrust"
+                ],
+                "filter": {
+                    "name": "torrust",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'torrust'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=torrust",
+                    "--package=torrust"
+                ],
+                "filter": {
+                    "name": "torrust",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'torrust'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=torrust",
+                    "--package=torrust"
+                ],
+                "filter": {
+                    "name": "torrust",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'bencode'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=bencode",
+                    "--package=torrust"
+                ],
+                "filter": {
+                    "name": "bencode",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'metainfo'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=metainfo",
+                    "--package=torrust"
+                ],
+                "filter": {
+                    "name": "metainfo",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

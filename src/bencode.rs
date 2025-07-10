@@ -5,29 +5,37 @@ use eyre::{OptionExt, Result};
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Bencode {
     Integer(i64),
-    String(String),
+    String(Vec<u8>),
     List(Vec<Bencode>),
     Dictionary(HashMap<String, Bencode>),
 }
 
-pub fn decode(s: String) -> Result<Bencode> {
-    let (bencode, remaining) = decode_bencoded_string(s)?;
+pub fn decode(data: Vec<u8>) -> Result<Bencode> {
+    let (bencode, remaining) = decode_bencoded_bytes(&data)?;
     if !remaining.is_empty() {
         return Err(eyre::eyre!(
-            "Extra data after bencoded value: {}",
-            remaining
+            "Extra data after bencoded value: {} bytes",
+            remaining.len()
         ));
     }
     Ok(bencode)
 }
 
-pub fn encode(b: &Bencode) -> String {
+pub fn encode(b: &Bencode) -> Vec<u8> {
     match b {
-        Bencode::Integer(number) => format!("i{}e", number),
-        Bencode::String(string) => format!("{}:{}", string.len(), string),
+        Bencode::Integer(number) => format!("i{}e", number).into_bytes(),
+        Bencode::String(bytes) => {
+            let mut result = format!("{}:", bytes.len()).into_bytes();
+            result.extend_from_slice(bytes);
+            result
+        }
         Bencode::List(list) => {
-            let items: Vec<String> = list.iter().map(encode).collect();
-            format!("l{}e", items.join(""))
+            let mut result = b"l".to_vec();
+            for item in list {
+                result.extend_from_slice(&encode(item));
+            }
+            result.push(b'e');
+            result
         }
         Bencode::Dictionary(dict) => {
             let mut items: Vec<(String, Bencode)> =
@@ -35,86 +43,87 @@ pub fn encode(b: &Bencode) -> String {
 
             items.sort_by_key(|(k, _)| k.clone());
 
-            let result = items
-                .iter()
-                .map(|(k, v)| {
-                    let encoded_key = encode(&Bencode::String(k.clone()));
-                    let encoded_value = encode(&v);
-                    format!("{}{}", encoded_key, encoded_value)
-                })
-                .collect::<Vec<String>>()
-                .join("");
-
-            format!("d{}e", result)
+            let mut result = b"d".to_vec();
+            for (key, value) in items {
+                let encoded_key = encode(&Bencode::String(key.into_bytes()));
+                let encoded_value = encode(&value);
+                result.extend_from_slice(&encoded_key);
+                result.extend_from_slice(&encoded_value);
+            }
+            result.push(b'e');
+            result
         }
     }
 }
 
-fn decode_bencoded_string(s: String) -> Result<(Bencode, String)> {
-    let first_char = s
-        .chars()
-        .next()
-        .ok_or_else(|| eyre::eyre!("Empty string"))?;
+fn decode_bencoded_bytes(data: &[u8]) -> Result<(Bencode, &[u8])> {
+    let first_byte = data.first().ok_or_else(|| eyre::eyre!("Empty data"))?;
 
-    match first_char {
-        'i' => decode_integer(s),
-        'l' => decode_list(s),
-        'd' => decode_dictionary(s),
-        '0'..='9' => decode_string(s),
-        _ => Err(eyre::eyre!("Invalid bencode format")),
+    match *first_byte {
+        b'i' => decode_integer(data),
+        b'l' => decode_list(data),
+        b'd' => decode_dictionary(data),
+        b'0'..=b'9' => decode_string(data),
+        r => Err(eyre::eyre!("Invalid bencode format: {:?}", r)),
     }
 }
 
-fn decode_string(s: String) -> Result<(Bencode, String)> {
-    let (length_string, rest) = s.split_once(':').ok_or_eyre("Invalid string")?;
+fn decode_string(data: &[u8]) -> Result<(Bencode, &[u8])> {
+    let colon_pos = data
+        .iter()
+        .position(|&b| b == b':')
+        .ok_or_eyre("Invalid string: missing colon")?;
+
+    let length_bytes = &data[..colon_pos];
+    let length_string = std::str::from_utf8(length_bytes)
+        .map_err(|_| eyre::eyre!("Invalid UTF-8 in string length"))?;
 
     let length = length_string.parse::<usize>()?;
-    if length > rest.len() {
+
+    let content_start = colon_pos + 1;
+    if content_start + length > data.len() {
         return Err(eyre::eyre!("String length exceeds remaining data"));
     }
 
-    let (decoded_string, rest) = rest.split_at(length);
+    let decoded_bytes = &data[content_start..content_start + length];
+    let remaining = &data[content_start + length..];
 
-    Ok((
-        Bencode::String(decoded_string.to_string()),
-        rest.to_string(),
-    ))
+    Ok((Bencode::String(decoded_bytes.to_vec()), remaining))
 }
 
-fn decode_partial_list(s: String) -> Result<(Bencode, String)> {
+fn decode_partial_list(data: &[u8]) -> Result<(Bencode, &[u8])> {
     let mut vec = Vec::new();
-    let mut rest = s[1..].to_string();
-    while rest.len() > 0 && rest.chars().next() != Some('e') {
-        let (item, new_rest) = decode_bencoded_string(rest)?;
+    let mut rest = &data[1..]; // Skip the 'l' or 'd'
+
+    while !rest.is_empty() && rest[0] != b'e' {
+        let (item, new_rest) = decode_bencoded_bytes(rest)?;
         vec.push(item);
         rest = new_rest;
     }
 
-    Ok((Bencode::List(vec), rest[1..].to_string()))
+    if rest.is_empty() {
+        return Err(eyre::eyre!("Missing 'e' terminator"));
+    }
+
+    Ok((Bencode::List(vec), &rest[1..])) // Skip the 'e'
 }
 
-fn decode_list(s: String) -> Result<(Bencode, String)> {
-    let first_char = s
-        .chars()
-        .next()
-        .ok_or_else(|| eyre::eyre!("Empty string"))?;
-    if first_char != 'l' {
+fn decode_list(data: &[u8]) -> Result<(Bencode, &[u8])> {
+    let first_byte = data.first().ok_or_else(|| eyre::eyre!("Empty data"))?;
+    if *first_byte != b'l' {
         return Err(eyre::eyre!("Invalid list format"));
     }
 
-    decode_partial_list(s)
+    decode_partial_list(data)
 }
 
-fn decode_dictionary(s: String) -> Result<(Bencode, String)> {
-    let first_char = s
-        .chars()
-        .next()
-        .ok_or_else(|| eyre::eyre!("Empty string"))?;
-    if first_char != 'd' {
+fn decode_dictionary(data: &[u8]) -> Result<(Bencode, &[u8])> {
+    let first_byte = data.first().ok_or_else(|| eyre::eyre!("Empty data"))?;
+    if *first_byte != b'd' {
         return Err(eyre::eyre!("Invalid dictionary format"));
     }
 
-    let (list, rest) = decode_partial_list(s)?;
+    let (list, rest) = decode_partial_list(data)?;
 
     if let Bencode::List(list) = list {
         if list.len() % 2 != 0 {
@@ -131,10 +140,11 @@ fn decode_dictionary(s: String) -> Result<(Bencode, String)> {
         let keys = keys
             .into_iter()
             .map(|k| match k {
-                Bencode::String(s) => s,
+                Bencode::String(bytes) => String::from_utf8(bytes)
+                    .map_err(|_| eyre::eyre!("Dictionary key must be valid UTF-8")),
                 _ => unreachable!(), // We checked above that all keys are strings
             })
-            .collect::<Vec<String>>();
+            .collect::<Result<Vec<String>>>()?;
 
         if keys.windows(2).any(|w| w[0] > w[1]) {
             return Err(eyre::eyre!("Keys in a bencoded dictionary must be sorted"));
@@ -151,20 +161,21 @@ fn decode_dictionary(s: String) -> Result<(Bencode, String)> {
     }
 }
 
-fn decode_integer(s: String) -> Result<(Bencode, String)> {
-    let first_char = s
-        .chars()
-        .next()
-        .ok_or_else(|| eyre::eyre!("Empty string"))?;
-    if first_char != 'i' {
+fn decode_integer(data: &[u8]) -> Result<(Bencode, &[u8])> {
+    let first_byte = data.first().ok_or_else(|| eyre::eyre!("Empty data"))?;
+    if *first_byte != b'i' {
         return Err(eyre::eyre!("Invalid integer format"));
     }
 
-    let end_index = s
-        .find('e')
+    let end_index = data
+        .iter()
+        .position(|&b| b == b'e')
         .ok_or_else(|| eyre::eyre!("Missing 'e' in integer"))?;
 
-    let integer_string = &s[1..end_index];
+    let integer_bytes = &data[1..end_index];
+    let integer_string =
+        std::str::from_utf8(integer_bytes).map_err(|_| eyre::eyre!("Invalid UTF-8 in integer"))?;
+
     if integer_string.len() > 1 && integer_string.starts_with('0') {
         return Err(eyre::eyre!("Leading zeros are not allowed in integers"));
     }
@@ -174,7 +185,7 @@ fn decode_integer(s: String) -> Result<(Bencode, String)> {
 
     let integer = integer_string.parse::<i64>()?;
 
-    let rest = s[end_index + 1..].to_string();
+    let rest = &data[end_index + 1..];
 
     Ok((Bencode::Integer(integer), rest))
 }
