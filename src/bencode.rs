@@ -165,6 +165,13 @@ fn decode_integer(s: String) -> Result<(Bencode, String)> {
         .ok_or_else(|| eyre::eyre!("Missing 'e' in integer"))?;
 
     let integer_string = &s[1..end_index];
+    if integer_string.len() > 1 && integer_string.starts_with('0') {
+        return Err(eyre::eyre!("Leading zeros are not allowed in integers"));
+    }
+    if integer_string.starts_with("-0") {
+        return Err(eyre::eyre!("Negative zeros are not allowed"));
+    }
+
     let integer = integer_string.parse::<i64>()?;
 
     let rest = s[end_index + 1..].to_string();

@@ -117,3 +117,96 @@ fn test_encode_dictionary() {
     let encoded = bencode::encode(&bencode);
     assert_eq!(encoded, "d3:cow3:moo4:spam4:eggse");
 }
+
+#[test]
+fn test_decode_zero_integer() {
+    let encoded = "i0e".to_string();
+    let decoded = bencode::decode(encoded).unwrap();
+    assert_eq!(decoded, bencode::Bencode::Integer(0));
+}
+
+#[test]
+fn test_decode_empty_string() {
+    let encoded = "0:".to_string();
+    let decoded = bencode::decode(encoded).unwrap();
+    assert_eq!(decoded, bencode::Bencode::String("".to_string()));
+}
+
+#[test]
+fn test_decode_empty_list() {
+    let encoded = "le".to_string();
+    let decoded = bencode::decode(encoded).unwrap();
+    assert_eq!(decoded, bencode::Bencode::List(vec![]));
+}
+
+#[test]
+fn test_decode_empty_dictionary() {
+    let encoded = "de".to_string();
+    let decoded = bencode::decode(encoded).unwrap();
+    assert_eq!(
+        decoded,
+        bencode::Bencode::Dictionary(std::collections::HashMap::new())
+    );
+}
+
+#[test]
+fn test_encode_nested_list() {
+    let bencode = bencode::Bencode::List(vec![
+        bencode::Bencode::String("spam".to_string()),
+        bencode::Bencode::List(vec![
+            bencode::Bencode::String("a".to_string()),
+            bencode::Bencode::String("b".to_string()),
+        ]),
+    ]);
+    let encoded = bencode::encode(&bencode);
+    assert_eq!(encoded, "l4:spaml1:a1:bee");
+}
+
+#[test]
+fn test_decode_invalid_integer_leading_zero() {
+    let encoded = "i03e".to_string();
+    assert!(bencode::decode(encoded).is_err());
+}
+
+#[test]
+fn test_decode_invalid_integer_negative_zero() {
+    let encoded = "i-0e".to_string();
+    assert!(bencode::decode(encoded).is_err());
+}
+
+#[test]
+fn test_decode_invalid_string_length() {
+    let encoded = "10:abc".to_string();
+    assert!(bencode::decode(encoded).is_err());
+}
+
+#[test]
+fn test_decode_unsorted_dictionary_keys() {
+    let encoded = "d4:spami42e3:cow3:mooe".to_string();
+    assert!(bencode::decode(encoded).is_err());
+}
+
+#[test]
+fn test_extra_data() {
+    let encoded = "i42e_extra_data".to_string();
+    assert!(bencode::decode(encoded).is_err());
+}
+
+#[test]
+fn test_round_trip_complex() {
+    use std::collections::HashMap;
+    let mut dict = HashMap::new();
+    dict.insert(
+        "publisher".to_string(),
+        bencode::Bencode::String("bob".to_string()),
+    );
+    dict.insert(
+        "publisher-webpage".to_string(),
+        bencode::Bencode::String("www.example.com".to_string()),
+    );
+    let bencode = bencode::Bencode::Dictionary(dict);
+
+    let encoded = bencode::encode(&bencode);
+    let decoded = bencode::decode(encoded).unwrap();
+    assert_eq!(bencode, decoded);
+}
