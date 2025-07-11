@@ -43,6 +43,7 @@
             cargo-edit
             cargo-watch
             rust-analyzer
+            sccache
             git
           ];
 
